@@ -1,11 +1,15 @@
 import express from "express";
 const router = express.Router();
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { ReqError } from "../util/errorHandler.mjs";
 import { loginUser } from "../util/dbQueries.mjs";
+import { config } from "dotenv";
+config();
 
 router.post("/", async (req, res, next) => {
   const { email, password } = req.body;
+  console.log(req.headers.authorization);
 
   try {
     const user = loginUser(email);
@@ -17,9 +21,13 @@ router.post("/", async (req, res, next) => {
     const correctPassword = await bcrypt.compare(password, user.password);
 
     if (correctPassword) {
-      res.status(200).json({ message: "Authentication successful" });
+      const payload = { user: user.email };
+      const secret = process.env.JWT_SECRET;
+      const token = jwt.sign(payload, secret, { expiresIn: "1h" });
+
+      res.status(200).json({ message: "Authentication successful", token });
     } else {
-      next(new ReqError(403, "Wrong password"));
+      next(new ReqError(403, "Authentication failed"));
     }
   } catch (e) {
     next(new ReqError(500, e.message));
